@@ -185,7 +185,7 @@ void eval(char *cmdline)
 
             if(!bg)
             {
-                wait(NULL);
+                waitfg(pid);
             }
             else
             {
@@ -193,7 +193,6 @@ void eval(char *cmdline)
             }
             return;
         }
-
     }
 }
 
@@ -265,7 +264,7 @@ int builtin_cmd(char **argv)
         exit(0);
     } else if (strcmp(argv[0], "fg") == 0)
     {
-        for ()
+        //handle fg command
         return 1;
     } else if (strcmp(argv[0], "bg") == 0)
     {
@@ -293,6 +292,11 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    struct job_t *job = getjobpid(jobs, pid);
+    while (job->state == FG)
+    {
+        sleep(1);
+    }
     return;
 }
 
@@ -309,7 +313,13 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    return;
+    pid_t pid;
+    int status;
+    struct job_t *job;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        deletejob(jobs, pid);
+    }
 }
 
 /* 
@@ -550,6 +560,3 @@ void sigquit_handler(int sig)
     printf("Terminating after receipt of SIGQUIT signal\n");
     exit(1);
 }
-
-
-
