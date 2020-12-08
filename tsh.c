@@ -1,7 +1,5 @@
 /* 
  * tsh - A tiny shell program with job control
- * 
- * <Put your name and login ID here>
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -262,17 +260,14 @@ int builtin_cmd(char **argv)
     if(strcmp(argv[0], "quit") == 0)
     {
         exit(0);
-    } else if (strcmp(argv[0], "fg") == 0)
+    } else if (strcmp(argv[0], "fg") == 0 || strcmp(argv[0], "bg") == 0)
     {
-        //handle fg command
-        return 1;
-    } else if (strcmp(argv[0], "bg") == 0)
-    {
-        //handle bg command
+        do_bgfg(argv);
         return 1;
     } else if (strcmp(argv[0], "jobs") == 0)
     {
         listjobs(jobs);
+        return 1;
     }
 
     /* not a built-in command */
@@ -284,7 +279,48 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    return;
+    struct job_t *job;
+    char *id;
+    int jid;
+    pid_t pid;
+
+    id = argv[1];
+
+    if(!id)
+    {
+        printf("Must include a pid/jid\n");
+        return;
+    }
+    
+    if(id[0] == '%') {
+        int jid = atoi(&id[1]);
+
+        job = getjobjid(jobs, jid);
+
+        if(!job)
+        {
+            printf("Could not find job with jid %d", jid);
+            return;
+        }
+    }
+    else if(isdigit(id))
+    {
+        pid = atoi(argv[1]);
+        job = getjobpid(pid);
+    }
+
+    kill(job->pid, SIGCONT);
+    if(!strcmp(argv[0], "bg"))
+    {
+        job->state = BG;
+        printf("[%d] (%d) %s", job->jid, job->pid, job->cmdline);
+    }
+    else
+    {
+        job->state = FG;
+        waitfg(job->pid);
+    }
+    
 }
 
 /* 
@@ -329,7 +365,13 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-    return;
+    pid_t pid;
+
+    pid = fgpid(jobs);
+    if(pid)
+    {
+        kill(pid, sig);
+    }
 }
 
 /*
@@ -339,7 +381,14 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    return;
+    pid_t pid;
+    struct job_t *job;
+
+    pid = fgpid(jobs);
+    if(pid)
+    {
+        kill(pid, sig);
+    }
 }
 
 /*********************
@@ -560,3 +609,6 @@ void sigquit_handler(int sig)
     printf("Terminating after receipt of SIGQUIT signal\n");
     exit(1);
 }
+
+
+
